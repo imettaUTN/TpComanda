@@ -1,47 +1,52 @@
 <?php
 use Slim\Psr7\Response;
-class Logger
+require_once './models/Usuario.php';
+
+class Logger 
 {
-    public static function LogOperacion($request, $response, $next)
+    public static function LogOperacion($request, $handler)
     {
-        $retorno = $next($request, $response);
-        return $retorno;
+        $requestType = $request->getMethod();
+        $response = $handler->handle($request);
+        $response->getBody()->write("hola muchachos la peticion se hizo con:" . $requestType );
+        return $response;
     }
+
     public static function VerificarCredenciales($request, $handler)
     {
         $requestType = $request->getMethod();
         $response = new response();
-        $header = $request->getHeaderLine('Authorization');
-        $token = trim(explode("Bearer", $header)[1]);
+        $response->getBody()->write('Bienvenido '  );
 
-        try {
-            AutentificadorJWT::verificarToken($token);
-            $esValido = true;
-          } catch (Exception $e) {
-            $payload = json_encode(array('error' => $e->getMessage()));
-          }
-
-        if($esValido)
+        $response = $handler->handle($request);    
+        return $response;
+        if($requestType == "GET")
         {
-            if($requestType == "GET")
+            $response->getBody()->write('Bienvenido '  );
+
+            $response = $handler->handle($request);                
+
+        }elseif ($requestType == "POST"){
+
+            $response->getBody()->write('Metodo ' . $requestType .' verifica' );
+            $dataParseada= $request->getParsedBody();
+            $nombre = $dataParseada['nombre'];
+            $perfil = $dataParseada['perfil'];
+            $usuario = Usuario::obtenerUsuario($nombre);
+    
+            if($perfil == "admin")
             {
-                $response->getBody()->write('Metodo ' . $requestType .'no verifica' );
-
-            }elseif ($requestType == "POST"){
-
-               // $response->getBody()->write('Metodo ' . $requestType .' verifica' );
-                $dataParseada= $request->getParsedBody();
-                $sector = $dataParseada['sector'];
-                if( $sector > 4 || $sector <1)
-                {
-                    $response->getBody()->write('Metodo ' . $requestType .' sector invalido' );
-                    return $response;
-                }
                 $response->getBody()->write('Bienvenido ' . $nombre );
-                $handler->handle($request);                        
-
+                $response = $handler->handle($request);                
             }
+            else{
+                $response->getBody()->write('Usuario no autorizado ' . $nombre . ' perfil: ' . $perfil . ' id:' . $usuario->id);              
+                $response->withStatus(302);
+            }
+
         }
+   
+        //$response->getBody()->write("hola muchachos la peticion se hizo con:" . $requestType );
         return $response;
     }
 }

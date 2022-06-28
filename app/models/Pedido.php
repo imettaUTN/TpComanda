@@ -1,51 +1,27 @@
 <?php
-require_once './Pedido.php';
 
-class Pedido
-{   public $idComanda;
-    public $descripcion;
-    public $tiempoPedido;
-    public $estado;
+namespace App\Models;
 
-    public  function crearPedido()
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+
+class Pedido extends Model
+{
+    use SoftDeletes;
+
+    protected $primaryKey = 'id';
+    protected $table = 'pedido';
+    public $incrementing = true;
+    public $timestamps = false;
+    const DELETED_AT = 'fechaBaja';
+
+    public function productos()
     {
-        //pasa a enum despues
-        $estadoEnPreparacion = 1;
-        $objAccesoDatos = AccesoDatos::obtenerInstancia();
-        $consulta = $objAccesoDatos->prepararConsulta("INSERT INTO pedido (descripcion, id_comanda, tiempoPedido , estado)
-         VALUES (:descripcion, :id_comanda, :tiempoPedido, :estado)");
-        $consulta->bindValue(':nombreCliente', $this->nombreCliente, PDO::PARAM_STR);
-        $consulta->bindValue(':idMesa', $this->idMesa, PDO::PARAM_INT);
-        $consulta->bindValue(':estado', $estadoEnPreparacion);
-        $consulta->bindValue(':codigoComanda', generate_string(5));
-        $consulta->execute();
-
-        return $objAccesoDatos->obtenerUltimoId();
+        return $this->hasMany(ProductosPedido::class);
     }
-
-    public  function AsignarPedido($idPedido, $idUsuario)
-    {
-        //pasa a enum despues
-        $estadoEnPreparacion = 1;
-        $objAccesoDatos = AccesoDatos::obtenerInstancia();
-        $consulta = $objAccesoDatos->prepararConsulta("INSERT INTO pedidosusuario (idUsuario , IdPedido )
-         VALUES (:idUsuario , :IdPedido )");
-        $consulta->bindValue(':idUsuario', $this->nombreCliente, PDO::PARAM_STR);
-        $consulta->bindValue(':IdPedido', $this->idMesa, PDO::PARAM_INT);
-        $consulta->execute();
-
-        return $objAccesoDatos->obtenerUltimoId();
-    }
-    public static function obtenerPedido($codigoComanda, $descripcionPedido)
-    {
-        $comanda = obtenerComanda($codigoComanda);
-
-        $objAccesoDatos = AccesoDatos::obtenerInstancia();
-        $consulta = $objAccesoDatos->prepararConsulta("SELECT id_comanda, descripcion,tiempoPedido , estado FROM pedido WHERE id_comanda = :id_comanda and descripcion :descripcion");
-        $consulta->bindValue(':id_comanda', $comanda->id);
-        $consulta->bindValue(':descripcion', $descripcionPedido);
-        $consulta->execute();
-        return $consulta->fetchObject('Pedido');
-    }
-
+    // busco el producto que mas iempo tarde y eso es el timepo de 
+    // tabla intermedia un pedido, muhcos prod.
+    protected $fillable = [
+        'estado', 'codigo','idEmpleadoResponzable','tiempoPedido','fechaInicio','fechaFin', 'idMesa'
+    ];
 }

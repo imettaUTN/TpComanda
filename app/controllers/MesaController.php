@@ -1,73 +1,168 @@
 <?php
 require_once './models/Mesa.php';
-require_once './MesaController.php';
+require_once './models/Empleado.php';
+require_once './models/Encuesta.php';
+require_once './models/Usuario.php';
 
-require_once './interfaces/IApiUsable.php';
+use \App\Models\Empleado as Empleado;
+use \App\Models\Mesa as Mesa;
+use \App\Models\Usuario as Usuario;
+use \App\Models\Encuesta as Encuesta;
 
-class MesaController extends Mesa implements IApiUsable
+class MesaController implements IApiUsable
 {
-    public function CargarUno($request, $response, $args)
+  //CREO LAS MESAS LIBRES, SIN CLIENTES 
+  public function CargarUno($request, $response, $args)
+  {
+    $parametros = $request->getParsedBody();
+
+    //genero el codigo random del pedido
+    $input = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    $input_length = strlen($input);
+    $random_string = '';
+    for($i = 0; $i < 5; $i++) {
+        $random_character = $input[mt_rand(0, $input_length - 1)];
+        $random_string .= $random_character;
+    }
+    $numeroMesa = $parametros['numero'];    
+    $estado = 'LIBRE';    
+
+    if($numeroMesa == null)
     {
-        $parametros = $request->getParsedBody();
-        $numero = $parametros['numero'];
-        $mesa = new Mesa();
-        $mesa->numero = $numero;
-        $mesa->crearMesa();
-
-        $payload = json_encode(array("mensaje" => "Mesa creada con exito"));
-
-        $response->getBody()->write($payload);
-        return $response
-          ->withHeader('Content-Type', 'application/json');
+      $response->getBody()->write("Numero de mesa invalido o nulo");
+      return $response;
+    }
+    if($estado == null)
+    {
+      $response->getBody()->write("Estado de mesa invalido o nulo");
+      return $response;
     }
 
-    public function TraerUno($request, $response, $args)
-    {
-        // // Buscamos usuario por nombre
-        // $usr = $args['usuario'];
-        // $usuario = Usuario::obtenerUsuario($usr);
-        // $payload = json_encode($usuario);
+    //busco el primer mozo libre
+    $mozo = Empleado::where('estado', 'LIBRE')->where('sector','MOZOS')->first();
 
-        // $response->getBody()->write($payload);
-        // return $response
-        //   ->withHeader('Content-Type', 'application/json');
+    if($mozo == null)
+    {
+      $response->getBody()->write("No hay mozos libres para tomar la mesa");
+      return $response;
     }
 
-    public function TraerTodos($request, $response, $args)
-    {
-        $lista = Mesa::obtenerMesas();
-        $payload = json_encode(array("listaMesas" => $lista));
+    // Creamos la mesa
+    $mesa = new Mesa();
+    $mesa->numero = $numeroMesa;
+    $mesa->estado = strtoupper($estado);
+    $mesa->idMozo = $mozo->id;
+    $mesa->codigo=random_string;
+    $mesa->save();
 
-        $response->getBody()->write($payload);
-        return $response
-          ->withHeader('Content-Type', 'application/json');
+    //Le cambio el estado al mozo en 'OCUPADO' porque ya esta atendiendo una mesa 
+    //Preguntar si un mozo puede antender varias mesas para ver si le cambio el estado o no
+
+    $payload = json_encode(array("mensaje" => "Mesa creada con exito"));
+
+    $response->getBody()->write($payload);
+    return $response
+      ->withHeader('Content-Type', 'application/json');
+  }
+
+  public function TraerUno($request, $response, $args)
+  {
+    $id = $args['id'];
+
+    if($id == null)
+    {
+      $response->getBody()->write("id invalido o nulo");
+      return $response;
+    }
+
+    $mesa = Mesa::where('id', $id)->first();
+
+    $payload = json_encode($mesa);
+
+    $response->getBody()->write($payload);
+    return $response
+      ->withHeader('Content-Type', 'application/json');
+  }
+
+  public function TraerTodos($request, $response, $args)
+  {
+    $lista = Mesa::all();
+    $payload = json_encode(array("listaMesas" => $lista));
+
+    $response->getBody()->write($payload);
+    return $response
+      ->withHeader('Content-Type', 'application/json');
+  }
+
+  public function CerrarMesa($request, $response, $args)
+  {    
+    $parametros = $request->getParsedBody();
+    $idUser = $parametros['idUser'];  
+    $puntMesa = $parametros['puntMesa'];  
+    $txtMesa = $parametros['txtMesa'];      
+    $puntResto = $parametros['puntResto'];  
+    $txtResto = $parametros['txtResto'];  
+    $puntMozo = $parametros['puntMozo'];  
+    $txtMozo = $parametros['txtMozo'];  
+    $puntCocinero = $parametros['puntCocinero'];  
+    $txtCocinero = $parametros['txtCocinero'];  
+    $idMesa = $parametros['txtCocinero'];  
+
+    $usuario = Usuario::where('usuario', $idUser)->first();
+    if(is_null($usuario) || $usuario->perfil !== 'ADMIN')
+    {
+      $response->getBody()->write("Usuario invalido o nulo");
+      return $response;
     }
     
-    public function ModificarUno($request, $response, $args)
-     {
-    //     $parametros = $request->getParsedBody();
+    $encuesta = new Encuesta();
+    $encuesta->puntacionMesa = $puntMesa;
+    $encuesta->textoMesa = strtoupper($txtMesa);
+    $mesencuestaa->puntacionResto = $puntResto;
+    $mesencuestaa->textoResto = strtoupper($txtResto);
+    $mesencuestaa->puntacionMozo = $puntMozo;
+    $mesencuestaa->textoMozo = strtoupper($txtMozo);
+    $mesencuestaa->puntacionCocinero = $puntCocinero;
+    $mesencuestaa->textoCocinero = strtoupper($txtCocinero);
+    $mesencuestaa->mesa_id = $mozo->id;
+    $response->getBody()->write("Mesa cerrada correctamente");
+    return $response
+      ->withHeader('Content-Type', 'application/json');
+  }
 
-    //     $nombre = $parametros['nombre'];
-    //     Usuario::modificarUsuario($nombre);
+  public function CambiarEstado($request, $response, $args)
+  {
+    $parametros = $request->getParsedBody();
 
-    //     $payload = json_encode(array("mensaje" => "Usuario modificado con exito"));
+    $idMesa = $parametros['idMesa'];
+    $estado = $parametros['estado'];
 
-    //     $response->getBody()->write($payload);
-    //     return $response
-    //       ->withHeader('Content-Type', 'application/json');
-    }
-
-    public function BorrarUno($request, $response, $args)
+    if(is_null($estado) || $estado !=='con cliente esperando pedido' || $estado !=='con cliente comiendo'|| $estado !=='con cliente pagando')
     {
-        // $parametros = $request->getParsedBody();
-
-        // $usuarioId = $parametros['usuarioId'];
-        // Usuario::borrarUsuario($usuarioId);
-
-        // $payload = json_encode(array("mensaje" => "Usuario borrado con exito"));
-
-        // $response->getBody()->write($payload);
-        // return $response
-        //   ->withHeader('Content-Type', 'application/json');
+      $response->getBody()->write("Estado mesa no valido o nulo");
+      return $response;
     }
+    $mesa = Mesa::where('id', $idMesa)->first();
+    $mesa->estado = $estado;      
+    $mesa->save();
+    $payload = json_encode(array("mensaje" => "mesa modificado con exito"));  
+    $response->getBody()->write($payload);
+    return $response
+      ->withHeader('Content-Type', 'application/json');
+  }
+
+  public function BorrarUno($request, $response, $args)
+  {
+    $id = $args['id'];
+    // Buscamos el producto
+    $mesa = Mesa::find($id);
+    // Borramos
+    $mesa->delete();
+
+    $payload = json_encode(array("mensaje" => "Mesa borrado con exito"));
+
+    $response->getBody()->write($payload);
+    return $response
+      ->withHeader('Content-Type', 'application/json');
+  }
 }
